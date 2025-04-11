@@ -20,6 +20,9 @@ import CustomPairingsDialog from "@/components/swiss/custom-pairings-dialog";
 import CSVExportDialog from "@/components/swiss/csv-export-dialog";
 import { PlayerData, MatchResult } from "@/lib/swiss/types";
 import { pairPlayers } from "@/lib/swiss/tournament-logic";
+import { ModeToggle } from "@/components/theme-toggle";
+import { toast } from "sonner";
+import { Separator } from "@/components/ui/separator";
 
 export default function SwissCalculator() {
   const [players, setPlayers] = useState<PlayerData[]>([]);
@@ -37,7 +40,10 @@ export default function SwissCalculator() {
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
 
   const confirmPlayers = () => {
-    if (!playerInput.trim()) return;
+    if (!playerInput.trim()) {
+      toast.error("請輸入玩家姓名");
+      return;
+    }
 
     const playerNames = playerInput
       .trim()
@@ -46,7 +52,7 @@ export default function SwissCalculator() {
     // Check for duplicates
     const uniqueNames = new Set(playerNames);
     if (uniqueNames.size !== playerNames.length) {
-      alert("玩家姓名不得重複！");
+      toast.error("玩家姓名不得重複！");
       return;
     }
 
@@ -65,7 +71,7 @@ export default function SwissCalculator() {
 
   const startNextRound = () => {
     if (currentRound >= rounds) {
-      alert("所有輪次已完成！");
+      toast.error("所有輪次已完成！");
       return;
     }
 
@@ -148,7 +154,10 @@ export default function SwissCalculator() {
 
   return (
     <div className="container max-h-screen overflow-y-auto p-6">
-      <h1 className="mb-4 text-3xl font-bold">瑞士輪模擬器</h1>
+      <div className="flex justify-between">
+        <h1 className="mb-4 text-3xl font-bold">瑞士輪模擬器</h1>
+        <ModeToggle />
+      </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {/* Left Column - Input Area */}
@@ -173,6 +182,7 @@ export default function SwissCalculator() {
                     />
                   </ScrollArea>
                 </div>
+                <Separator className="my-4" />
                 <div className="mt-4">
                   <Label htmlFor="rounds-input">輪次數量：</Label>
                   <Input
