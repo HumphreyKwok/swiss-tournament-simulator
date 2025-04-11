@@ -20,6 +20,8 @@ export const metadata: Metadata = {
   description: "Pokemon Swiss Tournament Simulator",
 };
 
+import { Analytics } from "@vercel/analytics/react";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -39,6 +41,7 @@ export default function RootLayout({
           {children}
           <Toaster richColors position="top-right" />
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );
