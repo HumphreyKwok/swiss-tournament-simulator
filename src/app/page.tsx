@@ -41,7 +41,12 @@ export default function SwissCalculator() {
 
   const confirmPlayers = () => {
     if (!playerInput.trim()) {
-      toast.error("請輸入玩家姓名");
+      toast.error("請輸入玩家姓名！");
+      return;
+    }
+
+    if (!playerInput.trim().includes("\n")) {
+      toast.error("至少需要2名玩家！");
       return;
     }
 
@@ -171,19 +176,18 @@ export default function SwissCalculator() {
               <>
                 <div className="space-y-2">
                   <Label htmlFor="player-input">玩家姓名（每行一個）：</Label>
-                  <ScrollArea className="h-60">
+                  <ScrollArea className="">
                     <textarea
                       id="player-input"
                       placeholder="輸入玩家名稱"
-                      className="h-full w-full rounded border p-2 font-mono"
+                      className="h-full min-h-[150px] w-full rounded border p-2"
                       value={playerInput}
                       onChange={(e) => setPlayerInput(e.target.value)}
-                      style={{ minHeight: "150px" }}
                     />
                   </ScrollArea>
                 </div>
                 <Separator className="my-4" />
-                <div className="mt-4">
+                <div>
                   <Label htmlFor="rounds-input">輪次數量：</Label>
                   <Input
                     id="rounds-input"
@@ -191,7 +195,7 @@ export default function SwissCalculator() {
                     value={rounds}
                     onChange={(e) => setRounds(parseInt(e.target.value))}
                     min={1}
-                    className="w-20"
+                    className="my-4 w-20"
                   />
                 </div>
               </>
