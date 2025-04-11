@@ -30,7 +30,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} flex h-screen flex-col items-center justify-center overscroll-none antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} flex min-h-svh flex-col items-center justify-center overscroll-none antialiased`}
       >
         <ThemeProvider
           attribute="class"

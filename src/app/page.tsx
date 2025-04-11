@@ -158,7 +158,7 @@ export default function SwissCalculator() {
   };
 
   return (
-    <div className="container max-h-screen overflow-y-auto p-6">
+    <div className="items-centerS container flex min-h-svh flex-col justify-center overflow-y-auto p-6">
       <div className="flex justify-between">
         <h1 className="mb-4 text-3xl font-bold">瑞士輪模擬器</h1>
         <ModeToggle />
@@ -180,7 +180,7 @@ export default function SwissCalculator() {
                     <textarea
                       id="player-input"
                       placeholder="輸入玩家名稱"
-                      className="h-full min-h-[150px] w-full rounded border p-2"
+                      className="min-h-[150px] w-full rounded border p-2"
                       value={playerInput}
                       onChange={(e) => setPlayerInput(e.target.value)}
                     />
