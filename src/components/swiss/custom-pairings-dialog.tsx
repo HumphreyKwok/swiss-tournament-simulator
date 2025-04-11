@@ -140,7 +140,7 @@ export default function CustomPairingsDialog({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>自訂第一輪配對</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-left">
             手動設定每場比賽的配對。若有奇數位玩家，將有一位自動輪空。
           </DialogDescription>
         </DialogHeader>
@@ -148,17 +148,20 @@ export default function CustomPairingsDialog({
         <ScrollArea className="h-[400px] pr-4">
           <div className="space-y-4">
             {Array.from({ length: numPairs }).map((_, index) => (
-              <div key={index} className="grid grid-cols-5 items-center gap-2">
+              <div
+                key={index}
+                className="flex w-full items-center justify-between gap-2"
+              >
                 <div className="font-medium">配對 {index + 1}:</div>
 
-                <div className="col-span-2">
+                <div>
                   <Select
                     value={pairSelections[index]?.[0] || ""}
                     onValueChange={(value) =>
                       updatePairSelection(index, 0, value)
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="選擇玩家" />
                     </SelectTrigger>
                     <SelectContent>
@@ -173,14 +176,14 @@ export default function CustomPairingsDialog({
 
                 <div className="text-center font-medium">vs</div>
 
-                <div className="col-span-2">
+                <div>
                   <Select
                     value={pairSelections[index]?.[1] || ""}
                     onValueChange={(value) =>
                       updatePairSelection(index, 1, value)
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="選擇玩家" />
                     </SelectTrigger>
                     <SelectContent>

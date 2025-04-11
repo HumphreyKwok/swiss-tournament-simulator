@@ -11,7 +11,7 @@ export interface MatchResult {
   round: number;
   player1: string;
   player2: string;
-  winner: string | "tie" | "bye";
+  winner: string | "double_loss" | "bye";
 }
 
 export interface TournamentState {
@@ -20,6 +20,8 @@ export interface TournamentState {
   totalRounds: number;
   pairings: [PlayerData, PlayerData][];
   results: MatchResult[];
+  resultsConfirmed: boolean;
+  customFirstRoundEnabled: boolean;
 }
 
 export type OMWRating = "偏弱" | "正常" | "偏強" | "高手" | "地獄";

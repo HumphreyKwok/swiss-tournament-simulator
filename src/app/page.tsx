@@ -18,8 +18,9 @@ import PairingDisplay from "@/components/swiss/pairing-display";
 import StandingsDisplay from "@/components/swiss/standings-display";
 import CustomPairingsDialog from "@/components/swiss/custom-pairings-dialog";
 import CSVExportDialog from "@/components/swiss/csv-export-dialog";
+import ResetConfirmationDialog from "@/components/swiss/reset-confirmation-dialog";
 import { PlayerData, MatchResult } from "@/lib/swiss/types";
-import { pairPlayers } from "@/lib/swiss/tournament-logic";
+import { pairPlayers, handleByePlayer } from "@/lib/swiss/tournament-logic";
 import { ModeToggle } from "@/components/theme-toggle";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
@@ -38,6 +39,7 @@ export default function SwissCalculator() {
   // Dialog states
   const [isCustomPairingOpen, setIsCustomPairingOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
 
   const confirmPlayers = () => {
     if (!playerInput.trim()) {
@@ -45,15 +47,16 @@ export default function SwissCalculator() {
       return;
     }
 
-    if (!playerInput.trim().includes("\n")) {
-      toast.error("至少需要2名玩家！");
-      return;
-    }
-
     const playerNames = playerInput
       .trim()
       .split("\n")
       .filter((name) => name.trim());
+
+    if (playerNames.length < 2) {
+      toast.error("至少需要2名玩家！");
+      return;
+    }
+
     // Check for duplicates
     const uniqueNames = new Set(playerNames);
     if (uniqueNames.size !== playerNames.length) {
@@ -72,19 +75,74 @@ export default function SwissCalculator() {
 
     setPlayers(newPlayers);
     setTournamentStarted(true);
+    setCurrentRound(0);
+    setResultsConfirmed(false);
+    setPairings([]);
+    setMatchResults([]);
+
+    try {
+      const roundsValue = parseInt(rounds.toString());
+      if (isNaN(roundsValue) || roundsValue <= 0) {
+        toast.error("請輸入有效的輪次數量（大於0）！");
+        return;
+      }
+      setRounds(roundsValue);
+    } catch (e) {
+      toast.error("請輸入有效的輪次數量！");
+      return;
+    }
   };
 
   const startNextRound = () => {
     if (currentRound >= rounds) {
-      toast.error("所有輪次已完成！");
+      toast.success("所有輪次已完成！");
       return;
     }
 
-    setCurrentRound((prev) => prev + 1);
+    if (currentRound > 0 && !resultsConfirmed) {
+      toast.error("請先確認當前輪次的比賽結果！");
+      return;
+    }
+
+    const nextRound = currentRound + 1;
+    setCurrentRound(nextRound);
     setResultsConfirmed(false);
+
     // Generate pairings for the next round
-    const newPairings = pairPlayers(players, currentRound + 1, []);
+    const newPairings = pairPlayers(players, nextRound, []);
     setPairings(newPairings);
+
+    // Handle bye if odd number of players
+    if (players.length % 2 !== 0) {
+      const byePlayer = handleByePlayer(players, nextRound);
+      if (byePlayer) {
+        // Update player stats for the bye
+        const updatedPlayers = [...players];
+        const playerIndex = updatedPlayers.findIndex(
+          (p) => p.name === byePlayer.name,
+        );
+        if (playerIndex !== -1) {
+          // In Python, bye player gets 1 point and 1 win
+          updatedPlayers[playerIndex].points += 1;
+          updatedPlayers[playerIndex].wins += 1;
+          updatedPlayers[playerIndex].opponents.push("bye");
+
+          // Add to match results
+          const byeResult: MatchResult = {
+            round: nextRound,
+            player1: byePlayer.name,
+            player2: "bye",
+            winner: "bye",
+          };
+          setMatchResults((prev) => [...prev, byeResult]);
+          setPlayers(updatedPlayers);
+
+          // Notify user with same message as Python
+          toast.info(`${byePlayer.name} 輪空 (自動獲勝)`);
+        }
+      }
+    }
+
     setCustomFirstRoundEnabled(false);
   };
 
@@ -95,6 +153,56 @@ export default function SwissCalculator() {
       setPairings(customPairs);
       setResultsConfirmed(false);
       setCustomFirstRoundEnabled(false);
+
+      // Update opponents lists based on custom pairings
+      const updatedPlayers = [...players];
+      customPairs.forEach(([p1, p2]) => {
+        const player1 = updatedPlayers.find((p) => p.name === p1.name);
+        const player2 = updatedPlayers.find((p) => p.name === p2.name);
+
+        if (player1 && player2) {
+          if (!player1.opponents.includes(player2.name)) {
+            player1.opponents.push(player2.name);
+          }
+          if (!player2.opponents.includes(player1.name)) {
+            player2.opponents.push(player1.name);
+          }
+        }
+      });
+
+      // Handle bye if odd number of players
+      if (players.length % 2 !== 0) {
+        // Find the player that wasn't paired
+        const pairedPlayerNames = new Set<string>();
+        customPairs.forEach(([p1, p2]) => {
+          pairedPlayerNames.add(p1.name);
+          pairedPlayerNames.add(p2.name);
+        });
+
+        const byePlayer = updatedPlayers.find(
+          (p) => !pairedPlayerNames.has(p.name),
+        );
+        if (byePlayer) {
+          // In Python, bye player gets 1 point and 1 win
+          byePlayer.points += 1;
+          byePlayer.wins += 1;
+          byePlayer.opponents.push("bye");
+
+          // Add to match results
+          const byeResult: MatchResult = {
+            round: 1,
+            player1: byePlayer.name,
+            player2: "bye",
+            winner: "bye",
+          };
+          setMatchResults((prev) => [...prev, byeResult]);
+
+          // Notify user with the same message as in Python
+          toast.info(`${byePlayer.name} 輪空 (自動獲勝)`);
+        }
+      }
+
+      setPlayers(updatedPlayers);
     }
   };
 
@@ -114,16 +222,16 @@ export default function SwissCalculator() {
       const player2 = updatedPlayers.find((p) => p.name === result.player2);
 
       if (player1 && player2) {
-        if (result.winner === "tie") {
-          player1.ties += 1;
-          player2.ties += 1;
-          player1.points += 0.5;
-          player2.points += 0.5;
+        if (result.winner === "double_loss") {
+          // Handle double loss case as in Python implementation
+          player1.losses += 1;
+          player2.losses += 1;
+          // No points awarded
         } else if (result.winner === player1.name) {
           player1.wins += 1;
           player2.losses += 1;
           player1.points += 1;
-        } else {
+        } else if (result.winner === player2.name) {
           player2.wins += 1;
           player1.losses += 1;
           player2.points += 1;
@@ -141,20 +249,23 @@ export default function SwissCalculator() {
 
     setPlayers(updatedPlayers);
     setResultsConfirmed(true);
+
+    // Show completion message if this was the final round
+    if (currentRound >= rounds) {
+      toast.success("所有輪次已完成！");
+    }
   };
 
   const resetTournament = () => {
-    if (confirm("是否要重新開始？所有進度將清空！")) {
-      setPlayers([]);
-      setRounds(4);
-      setCurrentRound(0);
-      setPlayerInput("");
-      setPairings([]);
-      setMatchResults([]);
-      setResultsConfirmed(false);
-      setCustomFirstRoundEnabled(true);
-      setTournamentStarted(false);
-    }
+    setPlayers([]);
+    setRounds(4);
+    setCurrentRound(0);
+    setPlayerInput("");
+    setPairings([]);
+    setMatchResults([]);
+    setResultsConfirmed(false);
+    setCustomFirstRoundEnabled(true);
+    setTournamentStarted(false);
   };
 
   return (
@@ -167,10 +278,13 @@ export default function SwissCalculator() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {/* Left Column - Input Area */}
         <Card className={tournamentStarted ? "md:col-span-1" : "md:col-span-3"}>
-          <CardHeader>
-            <CardTitle>輸入區</CardTitle>
-            <CardDescription>設置玩家和輪次數量</CardDescription>
-          </CardHeader>
+          {!tournamentStarted && (
+            <CardHeader>
+              <CardTitle>輸入區</CardTitle>
+              <CardDescription>設置玩家和輪次數量</CardDescription>
+            </CardHeader>
+          )}
+
           <CardContent>
             {!tournamentStarted ? (
               <>
@@ -231,7 +345,7 @@ export default function SwissCalculator() {
                   </Button>
                 )}
                 <Button
-                  onClick={resetTournament}
+                  onClick={() => setIsResetDialogOpen(true)}
                   variant="destructive"
                   className="w-full"
                 >
@@ -255,6 +369,7 @@ export default function SwissCalculator() {
                     pairings={pairings}
                     onConfirmResults={confirmResults}
                     resultsConfirmed={resultsConfirmed}
+                    currentRound={currentRound}
                   />
                 ) : (
                   <div className="py-8 text-center text-gray-500">
@@ -271,6 +386,7 @@ export default function SwissCalculator() {
                 <StandingsDisplay
                   players={players}
                   currentRound={currentRound}
+                  isFinalStandings={currentRound >= rounds}
                 />
               </CardContent>
               <CardFooter>
@@ -301,6 +417,15 @@ export default function SwissCalculator() {
         onClose={() => setIsExportDialogOpen(false)}
         players={players}
         matchResults={matchResults}
+      />
+
+      <ResetConfirmationDialog
+        isOpen={isResetDialogOpen}
+        onClose={() => setIsResetDialogOpen(false)}
+        onConfirm={() => {
+          resetTournament();
+          setIsResetDialogOpen(false);
+        }}
       />
     </div>
   );

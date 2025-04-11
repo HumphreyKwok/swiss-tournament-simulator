@@ -57,8 +57,8 @@ export function pairPlayers(
     return customPairs;
   }
 
-  // Sort players by points and OMW (for first round, randomize)
-  const sortedPlayers = [...players].sort((a, b) => {
+  // Sort players by points and OMW
+  let sortedPlayers = [...players].sort((a, b) => {
     if (a.points !== b.points) {
       return b.points - a.points;
     }
@@ -68,9 +68,9 @@ export function pairPlayers(
     );
   });
 
-  // For first round, apply some randomization
+  // For first round, apply randomization
   if (roundNum === 1) {
-    // Simple shuffle for first round
+    // Shuffle players for round 1
     for (let i = sortedPlayers.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [sortedPlayers[i], sortedPlayers[j]] = [
@@ -102,6 +102,7 @@ export function pairPlayers(
           calculateOMW(p2, players, roundNum - 1),
       );
 
+      // Similar to Python implementation, first prioritize point difference, then OMW difference
       if (
         pointDiff < minPointDiff ||
         (pointDiff === minPointDiff && omwDiff < bestOMWDiff)
@@ -127,13 +128,37 @@ export function pairPlayers(
     }
   }
 
-  // Handle bye (odd number of players)
-  if (availablePlayers.length === 1) {
-    // In a real implementation, we would handle the bye player here
-    // For simplicity in this example, we're not including bye handling
+  return paired;
+}
+
+/**
+ * Handle bye player (for odd number of players)
+ */
+export function handleByePlayer(
+  players: PlayerData[],
+  currentRound: number,
+): PlayerData | null {
+  // Based on the Python implementation, after pairing, if there's a player left, they get a bye
+  // Sort players by points and OMW to get the lowest ranked player for the bye
+  const sortedPlayers = [...players].sort((a, b) => {
+    if (a.points !== b.points) {
+      return a.points - b.points; // Lower points get bye first
+    }
+    return (
+      calculateOMW(a, players, currentRound - 1) -
+      calculateOMW(b, players, currentRound - 1)
+    );
+  });
+
+  // Find a player who hasn't had a bye yet (no opponent named "bye")
+  for (const player of sortedPlayers) {
+    if (!player.opponents.includes("bye")) {
+      return player;
+    }
   }
 
-  return paired;
+  // If all have had byes, return the lowest ranked player
+  return sortedPlayers.length > 0 ? sortedPlayers[0] : null;
 }
 
 /**

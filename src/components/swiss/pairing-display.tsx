@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -11,19 +11,37 @@ import {
 } from "@/components/ui/select";
 import { PlayerData, MatchResult } from "@/lib/swiss/types";
 import { Card, CardContent } from "@/components/ui/card";
+import { toast } from "sonner";
 
 interface PairingDisplayProps {
   pairings: [PlayerData, PlayerData][];
   onConfirmResults: (results: MatchResult[]) => void;
   resultsConfirmed: boolean;
+  currentRound: number;
 }
 
 export default function PairingDisplay({
   pairings,
   onConfirmResults,
   resultsConfirmed,
+  currentRound,
 }: PairingDisplayProps) {
   const [results, setResults] = useState<Record<number, string>>({});
+
+  // Reset results when pairings or round changes
+  useEffect(() => {
+    // Clear results when new pairings are provided or the round changes
+    setResults({});
+  }, [pairings, currentRound]);
+
+  // Show tournament end notification when there are no more pairings and we're past round 1
+  useEffect(() => {
+    if (pairings.length === 0 && currentRound > 1) {
+      toast.success("比賽已結束！", {
+        description: "所有輪次已完成，感謝參與！",
+      });
+    }
+  }, [pairings, currentRound]);
 
   if (!pairings.length) {
     return (
@@ -40,18 +58,29 @@ export default function PairingDisplay({
 
   const handleConfirmResults = () => {
     // Check if all matches have results
-    if (Object.keys(results).length !== pairings.length) {
-      alert("請為每場比賽選擇一個結果！");
+    // Original check only verified count:
+    // if (Object.keys(results).length !== pairings.length) {
+
+    // Better check that matches Python implementation - verify no empty results
+    const missingResults = pairings.some((_, index) => !results[index]);
+    if (missingResults) {
+      toast.error("請為每場比賽選擇一個結果！");
       return;
     }
 
     // Format results for parent component
     const formattedResults: MatchResult[] = pairings.map((pairing, index) => {
       const [player1, player2] = pairing;
-      const winner = results[index] === "tie" ? "tie" : results[index];
+      let winner;
+
+      if (results[index] === "double_loss") {
+        winner = "double_loss";
+      } else {
+        winner = results[index];
+      }
 
       return {
-        round: 1, // This will be updated by the parent component
+        round: currentRound, // Use the current round number
         player1: player1.name,
         player2: player2.name,
         winner,
@@ -63,6 +92,8 @@ export default function PairingDisplay({
 
   return (
     <div className="space-y-4">
+      <h3 className="mb-2 font-bold">第 {currentRound} 輪配對</h3>
+
       {pairings.map((pairing, index) => {
         const [player1, player2] = pairing;
         const resultValue = results[index] || "";
@@ -72,17 +103,16 @@ export default function PairingDisplay({
             key={`${player1.name}-${player2.name}`}
             className="overflow-hidden"
           >
-            <CardContent className="grid grid-cols-3 items-center p-4">
+            <CardContent className="flex items-center justify-between p-4">
               <div className="text-left font-medium">{player1.name}</div>
               <div className="text-center">
                 {resultsConfirmed ? (
                   <div
                     className={`rounded-full px-3 py-1 text-center ${getResultClass(
                       resultValue,
-                      player1.name,
                     )}`}
                   >
-                    {getResultText(resultValue, player1.name)}
+                    {getResultText(resultValue, player1.name, player2.name)}
                   </div>
                 ) : (
                   <Select
@@ -90,7 +120,7 @@ export default function PairingDisplay({
                     onValueChange={(value) => handleResultChange(index, value)}
                     disabled={resultsConfirmed}
                   >
-                    <SelectTrigger className="w-full">
+                    <SelectTrigger className="w-40">
                       <SelectValue placeholder="選擇結果" />
                     </SelectTrigger>
                     <SelectContent>
@@ -100,7 +130,7 @@ export default function PairingDisplay({
                       <SelectItem value={player2.name}>
                         勝者: {player2.name}
                       </SelectItem>
-                      <SelectItem value="tie">雙敗</SelectItem>
+                      <SelectItem value="double_loss">雙敗</SelectItem>
                     </SelectContent>
                   </Select>
                 )}
@@ -120,24 +150,26 @@ export default function PairingDisplay({
   );
 }
 
-function getResultClass(result: string, playerName: string): string {
+function getResultClass(result: string): string {
   if (!result) return "";
 
-  if (result === "tie") {
-    return "bg-orange-100 text-orange-800";
+  if (result === "double_loss") {
+    return "bg-red-100 text-red-800";
   }
 
-  return result === playerName
-    ? "bg-green-100 text-green-800"
-    : "bg-red-100 text-red-800";
+  return "bg-green-100 text-green-800";
 }
 
-function getResultText(result: string, playerName: string): string {
+function getResultText(
+  result: string,
+  player1Name: string,
+  player2Name: string,
+): string {
   if (!result) return "未定";
 
-  if (result === "tie") {
+  if (result === "double_loss") {
     return "雙敗";
   }
 
-  return result === playerName ? "勝" : "敗";
+  return `勝者: ${result}`;
 }
